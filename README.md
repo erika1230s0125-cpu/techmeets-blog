@@ -2,6 +2,131 @@
 
 techmeets の Week 6〜17 で作成するブログアプリのリポジトリです。
 Week 6 では、Docker（Docker Compose）を使って Laravel の開発環境を構築しました。
+Week 7 では、Laravel の MVC を使って、ブログ・商品管理・イベント予約の3つの機能を作成しました。
+
+---
+
+## ✨ 機能（Week 7）
+
+### 基本課題：ブログ（`/posts`）
+
+| 機能 | URL | 内容 |
+|---|---|---|
+| 投稿一覧 | `GET /posts` | 新しい順に10件ずつ表示（ページネーション）。カテゴリーと本文の先頭100文字を表示 |
+| 投稿詳細 | `GET /posts/{id}` | 本文の改行もそのまま表示 |
+| 投稿作成 | `GET /posts/create` → `POST /posts` | タイトル・カテゴリー・本文を入力。未入力や文字数オーバーはエラーを表示 |
+| 投稿編集 | `GET /posts/{id}/edit` → `PUT /posts/{id}` | 今の内容をフォームに表示し、更新後は詳細ページに戻る |
+| 投稿削除 | `DELETE /posts/{id}` | 確認ダイアログで「OK」を押したときだけ削除 |
+
+### 練習課題1：商品管理（`/products`）
+
+| 機能 | URL | 内容 |
+|---|---|---|
+| 商品一覧 | `GET /products` | 表形式で10件ずつ表示。価格はカンマ区切り、在庫が0のときは「在庫切れ」と表示 |
+| 商品詳細 | `GET /products/{id}` | 説明が空のときは「説明はありません」と表示 |
+| 商品登録 | `GET /products/create` → `POST /products` | 商品名・カテゴリー・価格・在庫数・説明（任意）を入力。価格と在庫数は0以上の整数のみ |
+| 商品編集 | `GET /products/{id}/edit` → `PUT /products/{id}` | 今の内容をフォームに表示し、更新後は詳細ページに戻る |
+| 商品削除 | `DELETE /products/{id}` | 確認ダイアログで「OK」を押したときだけ削除 |
+
+### 練習課題2：イベント予約（`/events`・`/reservations`）
+
+| 機能 | URL | 内容 |
+|---|---|---|
+| イベント一覧 | `GET /events` | 開催日時の早い順に表示 |
+| イベント詳細 | `GET /events/{id}` | イベントの情報と、予約フォームを表示 |
+| 予約作成 | `POST /reservations` | 名前・メールアドレス・人数（1〜10人）・日時を入力。過去の日時や存在しないイベントへの予約はエラーにする |
+| 予約一覧 | `GET /reservations` | 新しい順に表示。イベント名から、そのイベントの詳細ページに移動できる |
+| 予約キャンセル | `DELETE /reservations/{id}` | 確認ダイアログで「OK」を押したときだけ削除 |
+
+イベントの登録画面はありません。イベントは phpMyAdmin で `events` テーブルに直接追加します（[セットアップ手順](#-セットアップ手順)の手順8を参照）。
+
+### 工夫したこと
+
+- **入力チェック**：`$request->validate()` で入力をチェックし、エラーのときは入力した値を `old()` で残したままフォームに戻す
+- **エラーメッセージの日本語化**：`lang/ja/validation.php` を作り、エラーメッセージを日本語で表示する。予約フォームでは、項目名を「名前」に上書きしている
+- **XSS 対策**：画面への出力は `{{ }}` でエスケープする。改行を表示するところだけ `{!! nl2br(e(...)) !!}` を使い、エスケープしてから改行を `<br>` に変えている
+- **CSRF 対策**：すべてのフォームに `@csrf` を付けている
+- **削除の確認ダイアログ**：タイトルなどは JavaScript に直接埋め込まず、`data-name` 属性から読み取る
+- **テーブルの関連付け**：予約は `event_id` でイベントとつながっている（外部キー制約あり）。モデルに `hasMany` / `belongsTo` を書き、予約一覧では `with('event')` で N+1 問題を防いでいる
+- **タイムゾーン**：`config/app.php` を `Asia/Tokyo` にして、日時を日本時間で保存・表示する
+
+---
+
+## 📸 スクリーンショット
+
+### ブログ
+
+| 投稿一覧 | 投稿詳細 |
+|---|---|
+| ![投稿一覧](docs/images/posts-index.jpg) | ![投稿詳細](docs/images/posts-show.png) |
+
+| 入力エラー |
+|---|
+| ![入力エラー](docs/images/posts-create-error.png) |
+
+### 商品管理
+
+| 商品一覧 | 商品詳細 |
+|---|---|
+| ![商品一覧](docs/images/products-index.png) | ![商品詳細](docs/images/products-show.png) |
+
+### イベント予約
+
+| イベント一覧 | イベント詳細・予約フォーム |
+|---|---|
+| ![イベント一覧](docs/images/events-index.png) | ![イベント詳細](docs/images/events-show.png) |
+
+| 予約一覧 |
+|---|
+| ![予約一覧](docs/images/reservations-index.png) |
+
+---
+
+## 🗄️ テーブル定義
+
+`id`・`created_at`・`updated_at` は、すべてのテーブルにあります（下の表では省略）。
+
+### posts（投稿）
+
+| カラム | 型 | NULL | 説明 |
+|---|---|---|---|
+| `title` | VARCHAR(200) | ✕ | タイトル |
+| `content` | TEXT | ✕ | 本文 |
+| `category` | VARCHAR(50) | ✕ | カテゴリー |
+
+### products（商品）
+
+| カラム | 型 | NULL | 説明 |
+|---|---|---|---|
+| `name` | VARCHAR(100) | ✕ | 商品名 |
+| `price` | INT UNSIGNED | ✕ | 価格（0以上） |
+| `description` | TEXT | ○ | 説明 |
+| `stock` | INT UNSIGNED | ✕ | 在庫数（0以上、初期値 0） |
+| `category` | VARCHAR(50) | ✕ | カテゴリー |
+
+### events（イベント）
+
+| カラム | 型 | NULL | 説明 |
+|---|---|---|---|
+| `title` | VARCHAR(100) | ✕ | イベント名 |
+| `description` | TEXT | ○ | 説明 |
+| `location` | VARCHAR(100) | ✕ | 会場 |
+| `starts_at` | DATETIME | ✕ | 開催日時 |
+
+### reservations（予約）
+
+| カラム | 型 | NULL | 説明 |
+|---|---|---|---|
+| `event_id` | BIGINT UNSIGNED | ✕ | イベントの ID（`events.id` への外部キー。イベントを削除すると予約も削除される） |
+| `name` | VARCHAR(50) | ✕ | 名前 |
+| `email` | VARCHAR(255) | ✕ | メールアドレス |
+| `number_of_people` | INT UNSIGNED | ✕ | 人数 |
+| `reserved_at` | DATETIME | ✕ | 予約日時 |
+
+```
+events 1 ──── * reservations
+（1つのイベントに、たくさんの予約がある）
+```
 
 ---
 
@@ -39,6 +164,8 @@ laravel-docker-app/
 │   │   └── default.conf    # Nginx の設定
 │   └── php/
 │       └── Dockerfile      # PHP（app コンテナ）のイメージ設定
+├── docs/
+│   └── images/             # README 用のスクリーンショット
 ├── src/                    # Laravel プロジェクト
 ├── docker-compose.yml      # コンテナの構成
 ├── .env.example            # Docker 用の環境変数のサンプル
@@ -118,11 +245,27 @@ docker compose exec app chmod -R 775 storage bootstrap/cache
 docker compose exec app php artisan migrate
 ```
 
-### 8. ブラウザで確認する
+### 8. イベントのデータを登録する
+
+イベントの登録画面はないため、http://localhost:8080（phpMyAdmin）で `laravel` データベースを選び、「SQL」タブで次の SQL を実行します。
+
+```sql
+INSERT INTO events (title, description, location, starts_at, created_at, updated_at) VALUES
+('はじめての料理教室', '季節の野菜を使った家庭料理を作ります。\nエプロンをお持ちください。', '東京都渋谷区 キッチンスタジオA', '2026-12-05 14:00:00', NOW(), NOW()),
+('スマホで写真講座', 'スマートフォンできれいな写真を撮るコツを学びます。', '東京都新宿区 文化センター 3階', '2026-12-12 10:00:00', NOW(), NOW()),
+('クリスマスリース作り', NULL, '神奈川県横浜市 市民ホール', '2026-12-20 13:30:00', NOW(), NOW());
+```
+
+> 💡 過去の日時には予約できないため、`starts_at` は今日より後の日時にしてください。
+
+### 9. ブラウザで確認する
 
 | URL | 確認すること |
 |---|---|
-| http://localhost | Laravel のウェルカムページが表示される |
+| http://localhost/posts | 投稿一覧が表示される |
+| http://localhost/products | 商品一覧が表示される |
+| http://localhost/events | イベント一覧が表示される |
+| http://localhost/reservations | 予約一覧が表示される |
 | http://localhost:8080 | phpMyAdmin で `laravel` データベースのテーブルが見える |
 
 ### 作業を終えるとき
