@@ -3,9 +3,13 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\ReservationController;
 
 Route::resource('posts', PostController::class);
 Route::resource('products', ProductController::class);
+Route::resource('events', EventController::class)->only(['index', 'show']);
+Route::resource('reservations', ReservationController::class)->only(['index', 'store', 'destroy']);
 
 Route::get('/', function () {
     return view('welcome');

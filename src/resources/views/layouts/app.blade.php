@@ -10,6 +10,8 @@
             <a href="/">ホーム</a>
             <a href="/posts">投稿一覧</a>
             <a href="/products">商品一覧</a>
+            <a href="/events">イベント一覧</a>
+            <a href="/reservations">予約一覧</a>
         </nav>
     </header>
 

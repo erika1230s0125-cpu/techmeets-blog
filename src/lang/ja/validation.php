@@ -5,6 +5,9 @@ return [
     // ルールごとのメッセージ
     'required' => ':attributeは必須です。',
     'integer' => ':attributeは整数で入力してください。',
+    'email' => ':attributeは正しい形式で入力してください。',
+    'date' => ':attributeは正しい日時を入力してください。',
+    'exists' => '選択された:attributeは存在しません。',
 
     'max' => [
         'string' => ':attributeは:max文字以内で入力してください。',
@@ -25,6 +28,10 @@ return [
         'price' => '価格',
         'stock' => '在庫数',
         'description' => '説明',
+        'email' => 'メールアドレス',
+        'number_of_people' => '人数',
+        'reserved_at' => '日時',
+        'event_id' => 'イベント',
     ],
 
 ];
