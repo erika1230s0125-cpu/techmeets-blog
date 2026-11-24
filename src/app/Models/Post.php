@@ -12,4 +12,10 @@ class Post extends Model
         'category',
         'user_id',
     ];
+
+    // この投稿に付いたコメント（投稿はたくさんのコメントを持つ）
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
 }
