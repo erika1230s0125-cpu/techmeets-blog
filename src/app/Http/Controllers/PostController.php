@@ -36,6 +36,8 @@ class PostController extends Controller
             'content' => 'required',
         ]);
 
+        $validated['user_id'] = auth()->id();
+
         Post::create($validated);
 
         return redirect()->route('posts.index')
