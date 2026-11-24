@@ -36,6 +36,8 @@ class PostController extends Controller
             'content' => 'required',
         ]);
 
+        $validated['user_id'] = auth()->id();
+
         Post::create($validated);
 
         return redirect()->route('posts.index')
@@ -55,6 +57,11 @@ class PostController extends Controller
      */
     public function edit(Post $post)
     {
+
+        if ($post->user_id !== auth()->id()) {
+            abort(403, 'この操作は許可されていません');
+        }
+
         return view('posts.edit', compact('post'));
     }
 
@@ -63,6 +70,10 @@ class PostController extends Controller
      */
     public function update(Request $request, Post $post)
     {
+
+        if ($post->user_id !== auth()->id()) {
+            abort(403, 'この操作は許可されていません');
+        }
         $validated = $request->validate([
             'title' => 'required|max:200',
             'category' => 'required|max:50',
@@ -80,6 +91,10 @@ class PostController extends Controller
      */
     public function destroy(Post $post)
     {
+        if ($post->user_id !== auth()->id()) {
+            abort(403, 'この操作は許可されていません');
+        }
+
         $post->delete();
 
         return redirect()->route('posts.index')
