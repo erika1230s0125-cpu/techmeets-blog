@@ -5,7 +5,9 @@
 @section('content')
     <h1>投稿一覧</h1>
 
+    @auth
     <a href="{{ route('posts.create') }}">新規投稿</a>
+    @endauth
 
     @forelse ($posts as $post)
         <article>

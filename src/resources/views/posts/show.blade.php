@@ -14,6 +14,8 @@
             {!! nl2br(e($post->content)) !!}
         </div>
     </article>
+
+    @if(auth()->id() === $post->user_id)
     <a href="{{ route('posts.edit', $post) }}">編集する</a>
     <form method="POST" action="{{ route('posts.destroy', $post) }}"
           style="display: inline;"
@@ -23,4 +25,5 @@
         @method('DELETE')
         <button type="submit">削除する</button>
     </form>
+    @endif
 @endsection
