@@ -3,6 +3,51 @@
 techmeets の Week 6〜17 で作成するブログアプリのリポジトリです。
 Week 6 では、Docker（Docker Compose）を使って Laravel の開発環境を構築しました。
 Week 7 では、Laravel の MVC を使って、ブログ・商品管理・イベント予約の3つの機能を作成しました。
+Week 8 では、Laravel Breeze でユーザー認証を追加し、ブログを会員制にして、コメント機能を作成しました。
+
+---
+
+## ✨ 機能（Week 8）
+
+### 基本課題：会員制ブログ
+
+| 機能 | URL | 内容 |
+|---|---|---|
+| ユーザー登録 | `GET /register` → `POST /register` | 名前・メールアドレス・パスワードで登録（Laravel Breeze） |
+| ログイン | `GET /login` → `POST /login` | メールアドレスとパスワードでログイン |
+| ログアウト | `POST /logout` | ブログ画面の上部のボタンからログアウト |
+| ダッシュボード | `GET /dashboard` | ログイン後のページ（Breeze） |
+| プロフィール編集 | `GET /profile` | 名前・メールアドレス・パスワードの変更（Breeze） |
+
+ブログ（`/posts`）は、次のように変わりました。
+
+| 操作 | 未ログイン | ログイン中 |
+|---|---|---|
+| 投稿一覧・投稿詳細を見る | ○ | ○ |
+| 投稿を作成する | ✕（ログイン画面へ移動） | ○ |
+| 投稿を編集・削除する | ✕（ログイン画面へ移動） | **自分の投稿だけ** ○（他人の投稿は 403） |
+
+### 練習課題1：コメント機能（投稿詳細ページ）
+
+| 機能 | URL | 内容 |
+|---|---|---|
+| コメント一覧 | `GET /posts/{id}` | 投稿詳細ページの下に、コメントと投稿者名・日時を表示。未ログインでも見られる |
+| コメント投稿 | `POST /posts/{id}/comments` | ログインユーザーだけ投稿できる（1000文字まで） |
+| コメント削除 | `DELETE /comments/{id}` | 自分のコメントだけ削除できる（他人のコメントは 403） |
+
+投稿を削除すると、その投稿のコメントも一緒に削除されます。
+
+### 練習課題2：セキュリティテスト
+
+XSS・CSRF・SQLインジェクション・認証・認可・パスワード・`.env` の7項目をテストしました。結果は Week 8 のプルリクエストに記載しています。
+
+### 工夫したこと
+
+- **ルートの分け方**：`posts` の作成・編集・削除だけを `auth` ミドルウェアのグループに入れ、一覧と詳細は誰でも見られるようにした。`/posts/create` が `/posts/{post}` に吸い込まれないよう、ログインが必要なルートを先に書いている
+- **認可チェックはコントローラーで行う**：編集・削除ボタンは投稿者にだけ表示するが、ボタンを隠すだけでは開発者ツールでフォームを書き換えれば送れてしまう。そのため `edit`・`update`・`destroy` のすべてで、投稿者とログインユーザーが違えば `abort(403)` にしている
+- **投稿者の記録**：`user_id` はフォームから受け取らず、コントローラーで `auth()->id()` を入れている（他人になりすまして投稿できないようにするため）
+- **ログアウトは POST**：ログアウトをリンク（GET）にすると、ほかのサイトから勝手にログアウトさせられる（CSRF）ため、`@csrf` 付きのフォームにしている
+- **Week 7 の画面を残す**：Breeze が `layouts/app.blade.php` を上書きするため、Week 7 のレイアウトを `layouts/blog.blade.php` に移し、ブログ・商品・イベントの画面はそちらを使っている
 
 ---
 
@@ -86,13 +131,39 @@ Week 7 では、Laravel の MVC を使って、ブログ・商品管理・イベ
 
 `id`・`created_at`・`updated_at` は、すべてのテーブルにあります（下の表では省略）。
 
+### users（ユーザー）
+
+Laravel 標準のテーブルです（主なカラムのみ）。
+
+| カラム | 型 | NULL | 説明 |
+|---|---|---|---|
+| `name` | VARCHAR(255) | ✕ | 名前 |
+| `email` | VARCHAR(255) | ✕ | メールアドレス（重複不可） |
+| `password` | VARCHAR(255) | ✕ | パスワード（bcrypt でハッシュ化して保存） |
+
 ### posts（投稿）
 
 | カラム | 型 | NULL | 説明 |
 |---|---|---|---|
+| `user_id` | BIGINT UNSIGNED | ✕ | 投稿者の ID（`users.id` への外部キー）※Week 8 で追加 |
 | `title` | VARCHAR(200) | ✕ | タイトル |
 | `content` | TEXT | ✕ | 本文 |
 | `category` | VARCHAR(50) | ✕ | カテゴリー |
+
+### comments（コメント）※Week 8 で追加
+
+| カラム | 型 | NULL | 説明 |
+|---|---|---|---|
+| `post_id` | BIGINT UNSIGNED | ✕ | 投稿の ID（`posts.id` への外部キー。投稿を削除するとコメントも削除される） |
+| `user_id` | BIGINT UNSIGNED | ✕ | コメントした人の ID（`users.id` への外部キー） |
+| `content` | TEXT | ✕ | コメント本文 |
+
+```
+users 1 ──── * posts
+users 1 ──── * comments
+posts 1 ──── * comments
+（1人のユーザーがたくさんの投稿・コメントを書き、1つの投稿にたくさんのコメントが付く）
+```
 
 ### products（商品）
 
@@ -135,7 +206,9 @@ events 1 ──── * reservations
 | 分類 | 技術 |
 |---|---|
 | フレームワーク | Laravel 12 |
+| 認証 | Laravel Breeze（Blade） |
 | 言語 | PHP 8.2（PHP-FPM） |
+| フロントエンド | Tailwind CSS / Vite（Breeze の画面で使用） |
 | Web サーバー | Nginx |
 | データベース | MySQL 8.0 / phpMyAdmin |
 | 環境 | Docker / Docker Compose |
@@ -179,6 +252,7 @@ laravel-docker-app/
 ### 前提
 
 - Docker Desktop をインストールし、起動して「Engine running」になっていること
+- ホストPCに Node.js（npm）がインストールされていること（`node -v` でバージョンが表示されれば OK）
 - ポート 80・3306・8080 がほかのソフト（XAMPP など）で使われていないこと
 
 ### 1. リポジトリをクローンする
@@ -213,6 +287,18 @@ docker compose exec -e COMPOSER_PROCESS_TIMEOUT=0 app composer install
 ```
 
 > 💡 Windows では、ファイルの展開に時間がかかり、Composer が時間切れ（300秒）で止まることがあります。`COMPOSER_PROCESS_TIMEOUT=0` で制限時間をなくしています。
+
+### 4-2. フロントエンドをビルドする（ホストPCで実行）
+
+Breeze の画面（登録・ログインなど）は Tailwind CSS を使っているため、CSS のビルドが必要です。ビルド結果の `src/public/build/` は Git で管理していません。
+app コンテナには Node.js が入っていないため、**ホストPC**の `src/` で実行します。
+
+```bash
+cd src
+npm install
+npm run build
+cd ..
+```
 
 ### 5. Laravel 用の `.env` を作る
 
@@ -262,7 +348,9 @@ INSERT INTO events (title, description, location, starts_at, created_at, updated
 
 | URL | 確認すること |
 |---|---|
-| http://localhost/posts | 投稿一覧が表示される |
+| http://localhost/register | ユーザー登録画面が表示され、登録するとダッシュボードに移動する |
+| http://localhost/login | ログイン画面が表示される |
+| http://localhost/posts | 投稿一覧が表示される（ログインすると「新規投稿」が表示される） |
 | http://localhost/products | 商品一覧が表示される |
 | http://localhost/events | イベント一覧が表示される |
 | http://localhost/reservations | 予約一覧が表示される |
@@ -301,3 +389,5 @@ docker compose down
 | `No application encryption key has been specified.` | `docker compose exec app php artisan key:generate` を実行する |
 | データベースに接続できない | `src/.env` の `DB_CONNECTION` が `mysql`、`DB_HOST` が `db` になっているか確認する |
 | `Permission denied` | 手順6の `chown` と `chmod` をもう一度実行する |
+| `Vite manifest not found` | 手順4-2の `npm install` と `npm run build` を、ホストPCの `src/` で実行する |
+| `419 Page Expired` | ページを再読み込みしてから、もう一度送信する（CSRF トークンの期限切れ） |
