@@ -6,6 +6,7 @@ use App\Models\Post;
 use App\Services\PostService;
 use App\Repositories\PostRepository;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class PostController extends Controller
 {
@@ -66,9 +67,7 @@ class PostController extends Controller
     public function edit(Post $post)
     {
 
-        if ($post->user_id !== auth()->id()) {
-            abort(403, 'この操作は許可されていません');
-        }
+        Gate::authorize('update', $post);
 
         return view('posts.edit', compact('post'));
     }
@@ -79,9 +78,8 @@ class PostController extends Controller
     public function update(Request $request, Post $post)
     {
 
-        if ($post->user_id !== auth()->id()) {
-            abort(403, 'この操作は許可されていません');
-        }
+        Gate::authorize('update', $post);
+
         $validated = $request->validate([
             'title' => 'required|max:200',
             'category' => 'required|max:50',
@@ -99,9 +97,7 @@ class PostController extends Controller
      */
     public function destroy(Post $post)
     {
-        if ($post->user_id !== auth()->id()) {
-            abort(403, 'この操作は許可されていません');
-        }
+        Gate::authorize('delete', $post);
 
         $this->postService->deletePost($post);
 
