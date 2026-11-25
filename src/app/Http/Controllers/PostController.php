@@ -3,16 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Services\PostService;
+use App\Repositories\PostRepository;
 use Illuminate\Http\Request;
 
 class PostController extends Controller
 {
+
+    public function __construct(
+        private PostService $postService,
+        private PostRepository $postRepository
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $posts = Post::latest()->paginate(10);
+        $posts = $this->postRepository->getAll();
 
         return view('posts.index', compact('posts'));
     }
@@ -38,7 +46,7 @@ class PostController extends Controller
 
         $validated['user_id'] = auth()->id();
 
-        Post::create($validated);
+        $post = $this->postService->createPost($validated);
 
         return redirect()->route('posts.index')
             ->with('success', '投稿を作成しました');
@@ -80,7 +88,7 @@ class PostController extends Controller
             'content' => 'required',
         ]);
 
-        $post->update($validated);
+        $post = $this->postService->updatePost($post, $validated);
 
         return redirect()->route('posts.show', $post)
             ->with('success', '投稿を更新しました');
@@ -95,7 +103,7 @@ class PostController extends Controller
             abort(403, 'この操作は許可されていません');
         }
 
-        $post->delete();
+        $this->postService->deletePost($post);
 
         return redirect()->route('posts.index')
             ->with('success', '投稿を削除しました');
