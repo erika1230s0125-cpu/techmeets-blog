@@ -7,6 +7,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\TaskController;
 
 Route::resource('products', ProductController::class);
 Route::resource('reservations', ReservationController::class)->only(['index', 'store', 'destroy']);
@@ -27,6 +28,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('posts', PostController::class)->except(['index', 'show']);
     Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('comments.store');
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+    Route::resource('tasks', TaskController::class);
+    Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggle'])->name('tasks.toggle');
 });
 
 Route::resource('posts', PostController::class)->only(['index', 'show']);

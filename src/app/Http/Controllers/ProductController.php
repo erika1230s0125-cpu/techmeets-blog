@@ -3,16 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use Illuminate\Http\Request;
+use App\Services\ProductService;
+use App\Repositories\ProductRepository;
+use App\Http\Requests\ProductRequest;
 
 class ProductController extends Controller
 {
+
+    public function __construct(
+        private ProductService $productService,
+        private ProductRepository $productRepository
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $products = Product::latest()->paginate(10);
+        $products = $this->productRepository->getAll();
         
         return view('products.index', compact('products'));
     }
@@ -28,17 +36,11 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(ProductRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|max:100',
-            'category' => 'required|max:50',
-            'price' => 'required|integer|min:0',
-            'stock' => 'required|integer|min:0',
-            'description' => 'nullable',
-        ]);
+        $validated = $request->validated();
 
-        Product::create($validated);
+        $product = $this->productService->createProduct($validated);
 
         return redirect()->route('products.index')
             ->with('success', '商品を登録しました');
@@ -63,28 +65,22 @@ class ProductController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Product $product)
+    public function update(ProductRequest $request, Product $product)
     {
-        $validated = $request->validate([
-            'name' => 'required|max:100',
-            'category' => 'required|max:50',
-            'price' => 'required|integer|min:0',
-            'stock' => 'required|integer|min:0',
-            'description' => 'nullable',
-        ]);
+        $validated = $request->validated();
 
-        $product->update($validated);
+        $product = $this->productService->updateProduct($product, $validated);
 
         return redirect()->route('products.show', $product)
             ->with('success', '商品を更新しました');
     }
-
+    
     /**
      * Remove the specified resource from storage.
      */
     public function destroy(Product $product)
     {
-        $product->delete();
+        $this->productService->deleteProduct($product);
 
         return redirect()->route('products.index')
             ->with('success', '商品を削除しました');

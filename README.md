@@ -4,6 +4,72 @@ techmeets の Week 6〜17 で作成するブログアプリのリポジトリで
 Week 6 では、Docker（Docker Compose）を使って Laravel の開発環境を構築しました。
 Week 7 では、Laravel の MVC を使って、ブログ・商品管理・イベント予約の3つの機能を作成しました。
 Week 8 では、Laravel Breeze でユーザー認証を追加し、ブログを会員制にして、コメント機能を作成しました。
+Week 9 では、Repository / Service パターンでコントローラーを整理し、タスク管理機能を最初からその設計で追加しました。
+
+---
+
+## ✨ 機能（Week 9）
+
+### 基本課題：ブログを Repository / Service でリファクタリング
+
+ブログ（`/posts`）の画面と動きは変えずに、中のコードの役割を分けました。
+
+| クラス | 役割 |
+|---|---|
+| `PostController` | リクエストを受け取り、Service / Repository に渡して、画面を返すだけ |
+| `PostService` | 作成・更新・削除の手順（トランザクションとログ）をまとめる |
+| `PostRepository` | DB の読み書き（`Post::〜`）だけを担当する |
+| `PostPolicy` | 「自分の投稿だけ編集・削除できる」というルールを1か所にまとめる |
+
+Week 8 で `edit`・`update`・`destroy` の3か所に書いていた `abort(403)` は、`PostPolicy` と `Gate::authorize()` に置き換えました。
+
+### 練習課題1：タスク管理（`/tasks`）
+
+最初から Repository / Service / FormRequest / Policy の形で作りました。タスクはすべて **ログインが必要** で、**自分のタスクだけ** を見る・編集する・削除することができます。
+
+| 機能 | URL | 内容 |
+|---|---|---|
+| タスク一覧 | `GET /tasks` | 自分のタスクを新しい順に表示。期限（なければ「期限なし」）と完了状態も表示 |
+| タスク作成 | `GET /tasks/create` → `POST /tasks` | タイトル（必須）・詳細・期限を入力して作成 |
+| タスク詳細 | `GET /tasks/{id}` | タイトル・詳細・期限・完了状態・作成日を表示（他人のタスクは 403） |
+| タスク編集 | `GET /tasks/{id}/edit` → `PUT /tasks/{id}` | 自分のタスクだけ編集できる（他人のタスクは 403） |
+| タスク削除 | `DELETE /tasks/{id}` | 確認ダイアログのあとに削除（他人のタスクは 403） |
+| 完了の切り替え | `PATCH /tasks/{id}/toggle` | 一覧のボタンで「完了」⇔「未完了」を切り替える |
+
+ユーザーを削除すると、そのユーザーのタスクも一緒に削除されます。
+
+### 練習課題2：商品管理・予約のリファクタリング
+
+Week 7 で作った `ProductController` と `ReservationController` を、Repository / Service / FormRequest を使う形に書き直しました。before / after は Week 9 のプルリクエストに記載しています。
+
+### 設計（Week 9 で追加したクラス）
+
+```
+src/app/
+├── Http/
+│   ├── Controllers/   # 受け取って渡すだけ（Post・Product・Reservation・Task）
+│   └── Requests/      # バリデーション（ProductRequest・ReservationRequest・TaskRequest）
+├── Services/          # 業務の手順：トランザクション＋ログ（Post・Product・Reservation・Task）
+├── Repositories/      # DB の読み書きだけ（Post・Product・Reservation・Task）
+└── Policies/          # 認可のルール（PostPolicy・TaskPolicy）
+```
+
+コントローラーでの使い分けは、次のルールにそろえています。
+
+| やること | 呼ぶ相手 |
+|---|---|
+| 読むだけ（一覧など） | Repository |
+| 作る・変える・消す | Service（中で Repository を呼ぶ） |
+
+### 工夫したこと
+
+- **ER図を先に描いた**：タスク管理は、コードを書く前に ER 図でカラム・型・NULL を許すかを決めてから、マイグレーションを書いた
+- **タスクは見るのも本人だけ**：投稿は誰でも見られるが、タスクは個人のものなので、`TaskPolicy` に `view` も用意し、`show` でも `Gate::authorize('view', $task)` をしている。一覧も Repository の `getByUser()` で自分のタスクだけを取得している
+- **完了の切り替えを Service に置いた**：「今の状態の反対にする」という業務のルールは `TaskService::toggleComplete()` に書き、DB への保存は Repository の `update()` に任せた
+- **期限は過去の日付も入れられるようにした**：`due_date` に「今日より後」のルールを付けると、期限が過ぎたタスクのタイトルを直すだけでも期限を変えないと保存できなくなる。そのため、ルールは `nullable|date` だけにした
+- **重複していたバリデーションをまとめた**：商品の `store` と `update` に同じルールが2回書かれていたので、`ProductRequest` 1つにまとめた
+- **N+1 対策を Repository に**：予約一覧の `with('event')` は、Repository の `getAll()` の中に入れている
+- **`user_id`・`is_completed` はフォームから受け取らない**：`TaskRequest` のルールに入れず、`user_id` はコントローラーで `auth()->id()` を入れている（なりすまし防止）
 
 ---
 
@@ -199,6 +265,21 @@ events 1 ──── * reservations
 （1つのイベントに、たくさんの予約がある）
 ```
 
+### tasks（タスク）※Week 9 で追加
+
+| カラム | 型 | NULL | 説明 |
+|---|---|---|---|
+| `user_id` | BIGINT UNSIGNED | ✕ | タスクの持ち主の ID（`users.id` への外部キー。ユーザーを削除するとタスクも削除される） |
+| `title` | VARCHAR(255) | ✕ | タイトル |
+| `description` | TEXT | ○ | 詳細 |
+| `due_date` | DATE | ○ | 期限（期限なしのタスクもある） |
+| `is_completed` | TINYINT(1) | ✕ | 完了したかどうか（初期値 0 = 未完了） |
+
+```
+users 1 ──── * tasks
+（1人のユーザーが、たくさんのタスクを持つ）
+```
+
 ---
 
 ## 🛠️ 使用技術
@@ -354,6 +435,7 @@ INSERT INTO events (title, description, location, starts_at, created_at, updated
 | http://localhost/products | 商品一覧が表示される |
 | http://localhost/events | イベント一覧が表示される |
 | http://localhost/reservations | 予約一覧が表示される |
+| http://localhost/tasks | ログインすると、自分のタスク一覧が表示される（未ログインならログイン画面へ移動） |
 | http://localhost:8080 | phpMyAdmin で `laravel` データベースのテーブルが見える |
 
 ### 作業を終えるとき
