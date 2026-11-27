@@ -17,9 +17,9 @@ class Task extends Model
     protected function casts(): array
     {
         return [
-        'is_completed' => 'boolean',
-        'due_date' => 'date',
-    ];
+            'is_completed' => 'boolean',
+            'due_date' => 'date',
+        ];
     }
 
     public function user()
