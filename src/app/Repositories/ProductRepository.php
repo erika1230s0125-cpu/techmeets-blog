@@ -11,11 +11,6 @@ class ProductRepository
         return Product::latest()->paginate(10);
     }
 
-    public function findById(int $id)
-    {
-        return Product::findOrFail($id);
-    }
-
     public function create(array $data)
     {
         return Product::create($data);

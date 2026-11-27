@@ -11,11 +11,6 @@ class PostRepository
         return Post::latest()->paginate(10);
     }
 
-    public function findById(int $id)
-    {
-        return Post::findOrFail($id);
-    }
-
     public function create(array $data)
     {
         return Post::create($data);
