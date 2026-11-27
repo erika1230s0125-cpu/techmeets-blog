@@ -96,4 +96,14 @@ class TaskController extends Controller
         return redirect()->route('tasks.index')
             ->with('success', 'タスクを削除しました');
     }
+
+    public function toggle(Task $task)
+    {
+        Gate::authorize('update', $task);
+
+        $this->taskService->toggleComplete($task);
+
+        return redirect()->route('tasks.index')
+            ->with('success', 'タスクの完了状態を切り替えました');
+    }
 }
